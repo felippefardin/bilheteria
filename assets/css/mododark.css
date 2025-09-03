@@ -1,0 +1,93 @@
+/* ===== Modo Dark ===== */
+
+body.dark-mode {
+    background-color: #121212 !important;
+    color: #f0f0f0 !important;
+    transition: all 0.3s ease;
+}
+
+body.dark-mode a {
+    color: #f0f0f0 !important;
+}
+
+body.dark-mode .navbar {
+    background-color: #1f1f1f !important;
+}
+
+body.dark-mode .navbar .logo {
+    color: #f0f0f0 !important;
+}
+
+body.dark-mode .navbar ul.nav-links li a,
+body.dark-mode .navbar ul.nav-links li button {
+    color: #f0f0f0 !important;
+}
+
+body.dark-mode .navbar ul.nav-links li button {
+    background-color: #333 !important;
+    color: #fff !important;
+}
+
+body.dark-mode .event-card {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+    color: #f0f0f0 !important;
+}
+
+body.dark-mode .event-card a.btn-comprar,
+body.dark-mode .event-card a.btn-login {
+    background-color: #0056b3 !important;
+    color: #fff !important;
+}
+
+body.dark-mode .event-card a.btn-comprar:hover,
+body.dark-mode .event-card a.btn-login:hover {
+    background-color: #003f7f !important;
+}
+
+body.dark-mode .footer {
+    background-color: #1f1f1f !important;
+    color: #f0f0f0 !important;
+}
+/* ===== Formulários no Modo Dark ===== */
+body.dark-mode .form-padrao {
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+body.dark-mode .form-padrao label {
+    color: #f0f0f0;
+}
+
+body.dark-mode .form-padrao input,
+body.dark-mode .form-padrao textarea {
+    background-color: #333;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    padding: 8px;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+body.dark-mode .form-padrao input::placeholder,
+body.dark-mode .form-padrao textarea::placeholder {
+    color: #aaa;
+}
+
+body.dark-mode .form-padrao button {
+    background-color: #007BFF;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+body.dark-mode .form-padrao button:hover {
+    background-color: #0056b3;
+}
+
