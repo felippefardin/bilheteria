@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </head>
 <body>
     
-</body>
+
 <div class="container">
     <h2>Login</h2>
     <?php if ($erro) echo "<p class='msg-erro'>$erro</p>"; ?>

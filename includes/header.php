@@ -10,6 +10,8 @@ if (session_status() === PHP_SESSION_NONE) {
             <ul class="nav-links">
                 <?php if(isset($_SESSION['usuario_id'])): ?>
                     <li><a href="perfil.php"><?= htmlspecialchars($_SESSION['usuario_nome']) ?></a></li>
+                    <li><a href="meu_ingresso.php">Meus Ingressos</a></li>
+                    <li><a href="meu_evento.php">Meus Eventos</a></li>
                     <li><a href="logout.php">Sair</a></li>
                 <?php else: ?>
                     <li><a href="login.php">Login</a></li>
@@ -24,3 +26,16 @@ if (session_status() === PHP_SESSION_NONE) {
         </nav>
     </div>
 </header>
+
+<!-- Botão VLibras fixo no canto -->
+<div vw class="enabled">
+    <div vw-access-button class="active"></div>
+    <div vw-plugin-wrapper></div>
+</div>
+
+<script src="https://vlibras.gov.br/app/vlibras-plugin.js"></script>
+<script>
+new window.VLibras.Widget('https://vlibras.gov.br/app');
+</script>
+
+<div class="container"> <!-- abre container -->

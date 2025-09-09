@@ -93,4 +93,5 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <p style="margin-top:15px;"><a href="perfil.php">Voltar para Meu Perfil</a></p>
 </div>
 </body>
+</html>
 <?php include 'includes/footer.php'; ?>

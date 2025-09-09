@@ -1,3 +1,5 @@
+</div> <!-- fecha container -->
+
 <footer class="footer">
     <div class="container">
         <p>&copy; <?php echo date('Y'); ?> Bilheteria Online - Todos os direitos reservados</p>

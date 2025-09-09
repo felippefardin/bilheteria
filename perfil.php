@@ -30,6 +30,31 @@ $usuario = $res->fetch_assoc();
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
+
+<style>
+    /* Botões meu perfil meu ingresso e meu evento da pagina perfil */
+
+.perfil-acoes {
+    display: flex;
+    flex-wrap: wrap; /* para responsivo */
+    gap: 15px; /* espaçamento entre os botões */
+}
+
+.perfil-acoes .btn {
+    flex: 1; /* todos os botões com largura igual */
+    text-align: center;
+    padding: 10px 15px;
+    background-color: #1e88e5; /* cor do botão, ajusta conforme seu dark mode */
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: background 0.3s;
+}
+
+.perfil-acoes .btn:hover {
+    background-color: #1565c0; /* efeito hover */
+}
+</style>
 <div class="container" style="margin-top: 30px;">
     <h2>Meu Perfil</h2>
 
@@ -40,10 +65,14 @@ $usuario = $res->fetch_assoc();
         <p><strong>Data de Cadastro:</strong> <?= date('d/m/Y H:i', strtotime($usuario['criado_em'])) ?></p>
     </div>
 
-    <div class="perfil-acoes" style="margin-top:20px;">
-        <a href="editar_perfil.php" class="btn">Editar Perfil</a>
-        <!-- <a href="logout.php" class="btn-sair">Sair</a> -->
-    </div>
+   <div class="perfil-acoes" style="margin-top:20px;">
+    <a href="editar_perfil.php" class="btn">Editar Perfil</a>
+    <a href="meu_ingresso.php" class="btn">Meus Ingressos</a>
+    <a href="meu_evento.php" class="btn">Criar Evento</a>
+    <!-- <a href="logout.php" class="btn-sair">Sair</a> -->
+</div>
+
+
 </div>
 
 <?php include 'includes/footer.php'; ?>
