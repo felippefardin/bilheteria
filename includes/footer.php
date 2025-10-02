@@ -1,5 +1,3 @@
-</div> <!-- fecha container -->
-
 <footer class="footer">
     <div class="container">
         <p>&copy; <?php echo date('Y'); ?> Bilheteria Online - Todos os direitos reservados</p>
@@ -20,25 +18,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if(darkMode) body.classList.add('dark-mode');
     body.style.fontSize = fontSize + 'px';
 
-    darkBtn.addEventListener('click', () => {
+    darkBtn?.addEventListener('click', () => {
         darkMode = body.classList.toggle('dark-mode');
         localStorage.setItem('darkMode', darkMode);
     });
 
-    aumentarBtn.addEventListener('click', () => {
+    aumentarBtn?.addEventListener('click', () => {
         fontSize += 2;
         body.style.fontSize = fontSize + 'px';
         localStorage.setItem('fontSize', fontSize);
     });
 
-    diminuirBtn.addEventListener('click', () => {
+    diminuirBtn?.addEventListener('click', () => {
         fontSize -= 2;
         if(fontSize < 12) fontSize = 12;
         body.style.fontSize = fontSize + 'px';
         localStorage.setItem('fontSize', fontSize);
     });
 
-    resetBtn.addEventListener('click', () => {
+    resetBtn?.addEventListener('click', () => {
         fontSize = 16;
         body.style.fontSize = fontSize + 'px';
         localStorage.setItem('fontSize', fontSize);

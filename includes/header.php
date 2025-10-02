@@ -37,5 +37,3 @@ if (session_status() === PHP_SESSION_NONE) {
 <script>
 new window.VLibras.Widget('https://vlibras.gov.br/app');
 </script>
-
-<div class="container"> <!-- abre container -->

@@ -108,8 +108,8 @@ body.dark-mode .dashboard-actions a.btn:hover {
     <nav class="dashboard-nav">
         <ul>
             <li><a href="index.php"><i class="fas fa-home"></i> Início</a></li>
-            <li><a href="perfil.php"><i class="fas fa-chart-bar"></i> Dados De Eventos</a></li>
-            <li><a href="meu_evento.php"><i class="fas fa-calendar-alt"></i> Meu Evento</a></li>
+            <li><a href="dados_eventos.php"><i class="fas fa-chart-bar"></i> Dados De Eventos</a></li>
+            <li><a href="eventos_criados.php"><i class="fas fa-calendar-alt"></i> Meu Evento</a></li>
         </ul>
     </nav>
 
@@ -118,7 +118,7 @@ body.dark-mode .dashboard-actions a.btn:hover {
         <a href="criar_evento_online.php" class="btn">
             <i class="fas fa-video"></i> Criar Evento Online
         </a>
-        <a href="criar_evento_presencial.php" class="btn">
+        <a href="meu_evento_presencial.php" class="btn">
             <i class="fas fa-map-marker-alt"></i> Criar Evento Presencial
         </a>
     </div>

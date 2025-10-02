@@ -14,7 +14,7 @@ $usuario_id = $_SESSION['usuario_id'];
 $stmt = $mysqli->prepare("
     SELECT id, evento_nome, data_evento, quantidade, valor, data_compra
     FROM ingressos
-    WHERE usuario_id = ?
+    WHERE usuario_id = ?https://chatgpt.com/c/68b6ff44-8c10-8330-a53b-e245358db207
     ORDER BY data_evento DESC
 ");
 $stmt->bind_param("i", $usuario_id);
