@@ -9,13 +9,19 @@ if (!isset($_GET['id'])) {
 }
 
 $evento_id = intval($_GET['id']);
+$is_proprietario = false;
 
-// Buscar detalhes do evento + produtor
+// Consulta única para evento, lotes e setores (otimizada)
 $stmt = $mysqli->prepare("
-    SELECT e.*, u.nome_completo AS produtor_nome, u.email AS produtor_email
+    SELECT e.*, u.nome_completo AS produtor_nome, u.email AS produtor_email,
+           el.id AS lote_id, el.numero_lote, el.quantidade AS lote_quantidade, el.inicio_venda, el.fim_venda,
+           els.id AS setor_id, els.nome_setor, els.nome_customizado, els.quantidade AS setor_quantidade, els.valor_inteira, els.valor_meia
     FROM eventos e
     INNER JOIN usuarios u ON e.usuario_id = u.id
-    WHERE e.id = ?
+    LEFT JOIN eventos_lotes el ON e.id = el.evento_id
+    LEFT JOIN eventos_lotes_setores els ON el.id = els.lote_id
+    WHERE e.id = ? AND e.status = 'ativo'
+    ORDER BY el.numero_lote ASC, els.nome_setor ASC
 ");
 $stmt->bind_param("i", $evento_id);
 $stmt->execute();
@@ -26,23 +32,36 @@ if ($result->num_rows === 0) {
     exit();
 }
 
-$evento = $result->fetch_assoc();
+$event_data = $result->fetch_all(MYSQLI_ASSOC);
+$evento = $event_data[0];
 
-// Verificar se o usuário logado é o produtor
-$is_proprietario = isset($_SESSION['usuario_id']) && $_SESSION['usuario_id'] == $evento['usuario_id'];
-
-// Buscar lotes e setores
-$lotes_result = $mysqli->query("SELECT * FROM eventos_lotes WHERE evento_id = {$evento['id']}");
-$lotes = [];
-while ($lote = $lotes_result->fetch_assoc()) {
-    $setores_result = $mysqli->query("SELECT * FROM eventos_lotes_setores WHERE lote_id = {$lote['id']}");
-    $setores = [];
-    while ($s = $setores_result->fetch_assoc()) {
-        $setores[] = $s;
+// Organiza os dados em um formato mais útil
+$lotes_organizados = [];
+foreach ($event_data as $row) {
+    $lote_id = $row['lote_id'];
+    if (!isset($lotes_organizados[$lote_id])) {
+        $lotes_organizados[$lote_id] = [
+            'id' => $row['lote_id'],
+            'numero_lote' => $row['numero_lote'],
+            'quantidade' => $row['lote_quantidade'],
+            'inicio_venda' => $row['inicio_venda'],
+            'fim_venda' => $row['fim_venda'],
+            'setores' => [],
+        ];
     }
-    $lote['setores'] = $setores;
-    $lotes[] = $lote;
+    if ($row['setor_id']) {
+        $lotes_organizados[$lote_id]['setores'][] = [
+            'id' => $row['setor_id'],
+            'nome' => !empty($row['nome_customizado']) ? $row['nome_customizado'] : $row['nome_setor'],
+            'quantidade' => $row['setor_quantidade'],
+            'valor_inteira' => $row['valor_inteira'],
+            'valor_meia' => $row['valor_meia']
+        ];
+    }
 }
+
+// Verifica se o usuário logado é o produtor
+$is_proprietario = isset($_SESSION['usuario_id']) && $_SESSION['usuario_id'] == $evento['usuario_id'];
 ?>
 
 <!DOCTYPE html>
@@ -100,26 +119,26 @@ while ($lote = $lotes_result->fetch_assoc()) {
         </div>
     </div>
 
-    <?php foreach($lotes as $lote): ?>
+    <?php foreach($lotes_organizados as $lote): ?>
     <div class="lote-card">
-        <h3>Lote <?= $lote['numero_lote'] ?> - <?= $lote['quantidade'] ?> ingressos <?= $is_proprietario ? "(Disponível: {$lote['quantidade']})" : "" ?></h3>
+        <h3>Lote <?= htmlspecialchars($lote['numero_lote']) ?> - <?= htmlspecialchars($lote['quantidade']) ?> ingressos</h3>
         <table class="setor-table">
             <tr>
                 <th>Setor</th>
                 <th>Inteira (R$)</th>
                 <th>Meia (R$)</th>
-                <?php if($is_proprietario): ?><th>Quantidade</th><?php endif; ?>
+                <th>Quantidade</th>
             </tr>
             <?php foreach($lote['setores'] as $s): ?>
                 <tr>
-                    <td><?= htmlspecialchars(!empty($s['nome_customizado']) ? $s['nome_customizado'] : $s['nome_setor']) ?></td>
+                    <td><?= htmlspecialchars($s['nome']) ?></td>
                     <td><?= number_format($s['valor_inteira'], 2, ',', '.') ?></td>
                     <td><?= number_format($s['valor_meia'], 2, ',', '.') ?></td>
-                    <?php if($is_proprietario): ?><td><?= $s['quantidade'] ?></td><?php endif; ?>
+                    <td><?= htmlspecialchars($s['quantidade']) ?></td>
                 </tr>
             <?php endforeach; ?>
         </table>
-        <a class="btn-continuar" href="comprar.php?evento_id=<?= $evento['id'] ?>&lote=<?= $lote['numero_lote'] ?>">Continuar Compra</a>
+        <a class="btn-continuar" href="comprar.php?evento_id=<?= $evento['id'] ?>&lote_id=<?= $lote['id'] ?>">Continuar Compra</a>
     </div>
     <?php endforeach; ?>
 
@@ -128,7 +147,6 @@ while ($lote = $lotes_result->fetch_assoc()) {
     </div>
 </div>
 
-<!-- Modal Contato -->
 <div class="modal-bg" id="modalContato">
     <div class="modal">
         <span class="modal-close" onclick="fecharModal()">×</span>

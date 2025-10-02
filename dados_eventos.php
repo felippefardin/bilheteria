@@ -80,7 +80,7 @@ button { padding: 6px 12px; margin: 3px; cursor: pointer; border: none; border-r
                 <td><?= date('d/m/Y', strtotime($e['data_inicio'])) ?><?php if($e['data_fim']) echo " - ".date('d/m/Y', strtotime($e['data_fim'])); ?></td>
                 <td><?= ucfirst($e['status']) ?></td>
                 <td>
-                    <?php if($e['status'] == 'inativo'): ?>
+                    <?php if($e['status'] == 'pausado'): ?>
                         <button class="btn-start" data-id="<?= $e['id'] ?>">Ativar Evento</button>
                     <?php endif; ?>
                     <?php if($e['status'] == 'ativo'): ?>
@@ -118,14 +118,14 @@ button { padding: 6px 12px; margin: 3px; cursor: pointer; border: none; border-r
                                 <td><?= $lote['quantidade'] ?></td>
                                 <td>
                                     <?php
-                                    $stmt_setores = $mysqli->prepare("SELECT * FROM eventos_lotes_setores WHERE lote_id=? ORDER BY id ASC");
+                                    $stmt_setores = $mysqli->prepare("SELECT nome_setor, nome_customizado, quantidade, valor_inteira, valor_meia FROM eventos_lotes_setores WHERE lote_id=? ORDER BY id ASC");
                                     $stmt_setores->bind_param("i", $lote['id']);
                                     $stmt_setores->execute();
                                     $result_setores = $stmt_setores->get_result();
                                     while($setor = $result_setores->fetch_assoc()){
                                         echo "Setor: ".($setor['nome_customizado'] ?: $setor['nome_setor'])."<br>";
                                         echo "Qtd: ".$setor['quantidade']."<br>";
-                                        echo "Inteira: R$ ".$setor['valor_inteira']." / Meia: R$ ".$setor['valor_meia']."<hr>";
+                                        echo "Inteira: R$ ".number_format($setor['valor_inteira'], 2, ',', '.')." / Meia: R$ ".number_format($setor['valor_meia'], 2, ',', '.')."<hr>";
                                     }
                                     $stmt_setores->close();
                                     ?>
@@ -145,7 +145,6 @@ button { padding: 6px 12px; margin: 3px; cursor: pointer; border: none; border-r
 <?php endif; ?>
 </div>
 
-<!-- Modal para ativar evento -->
 <div id="modalStart" class="modal">
     <div class="modal-content">
         <h3>Ativar Evento</h3>
@@ -175,17 +174,12 @@ document.querySelectorAll('.btn-start').forEach(btn => {
                 loteDiv.classList.add('lote');
                 loteDiv.innerHTML = `<h4>Lote ${lote.numero_lote}</h4>
                     <label>Data início venda:</label>
-                    <input type="date" name="lote[${lote.id}][inicio_venda]" value="${lote.inicio_venda ? lote.inicio_venda.split(' ')[0] : ''}" required><br>
-                    <label>Hora início:</label>
-                    <input type="time" name="lote[${lote.id}][hora_inicio]" value="${lote.inicio_venda ? lote.inicio_venda.split(' ')[1] : ''}" required><br>
+                    <input type="datetime-local" name="lote[${lote.id}][inicio_venda]" value="${lote.inicio_venda || ''}" required><br>
                     <label>Data fim venda:</label>
-                    <input type="date" name="lote[${lote.id}][fim_venda]" value="${lote.fim_venda ? lote.fim_venda.split(' ')[0] : ''}" required><br>
-                    <label>Hora fim:</label>
-                    <input type="time" name="lote[${lote.id}][hora_fim]" value="${lote.fim_venda ? lote.fim_venda.split(' ')[1] : ''}" required><br>
+                    <input type="datetime-local" name="lote[${lote.id}][fim_venda]" value="${lote.fim_venda || ''}" required><br>
                     <label>Quantidade máxima:</label>
                     <input type="number" name="lote[${lote.id}][quantidade]" value="${lote.quantidade}" required><br>
                     <div class="setores"></div>
-                    <button type="button" onclick="adicionarSetorModal(this, ${lote.id})">+ Adicionar Setor</button>
                 `;
                 container.appendChild(loteDiv);
                 const setoresDiv = loteDiv.querySelector('.setores');
@@ -194,14 +188,13 @@ document.querySelectorAll('.btn-start').forEach(btn => {
                     setorDiv.classList.add('setor-ingresso');
                     setorDiv.innerHTML = `
                         <label>Setor:</label>
-                        <input type="text" name="lote[${lote.id}][setores][][nome_setor]" value="${setor.nome_setor}" required>
+                        <input type="text" name="lote[${lote.id}][setores][${setor.id}][nome_setor]" value="${setor.nome_customizado || setor.nome_setor}" required>
                         <label>Qtd:</label>
-                        <input type="number" name="lote[${lote.id}][setores][][quantidade]" value="${setor.quantidade}" required>
+                        <input type="number" name="lote[${lote.id}][setores][${setor.id}][quantidade]" value="${setor.quantidade}" required>
                         <label>Valor Inteira:</label>
-                        <input type="number" name="lote[${lote.id}][setores][][valor_inteira]" value="${setor.valor_inteira}" step="0.01" required>
+                        <input type="number" name="lote[${lote.id}][setores][${setor.id}][valor_inteira]" value="${setor.valor_inteira}" step="0.01" required>
                         <label>Valor Meia:</label>
-                        <input type="number" name="lote[${lote.id}][setores][][valor_meia]" value="${setor.valor_meia}" step="0.01" required>
-                        <button type="button" onclick="this.parentElement.remove()">Remover Setor</button>
+                        <input type="number" name="lote[${lote.id}][setores][${setor.id}][valor_meia]" value="${setor.valor_meia}" step="0.01" required>
                     `;
                     setoresDiv.appendChild(setorDiv);
                 });
@@ -211,31 +204,16 @@ document.querySelectorAll('.btn-start').forEach(btn => {
     });
 });
 
-function adicionarSetorModal(btn, loteId){
-    const setoresDiv = btn.parentElement.querySelector('.setores');
-    const setorDiv = document.createElement('div');
-    setorDiv.classList.add('setor-ingresso');
-    setorDiv.innerHTML = `
-        <label>Setor:</label>
-        <input type="text" name="lote[${loteId}][setores][][nome_setor]" required>
-        <label>Qtd:</label>
-        <input type="number" name="lote[${loteId}][setores][][quantidade]" min="0" required>
-        <label>Valor Inteira:</label>
-        <input type="number" name="lote[${loteId}][setores][][valor_inteira]" step="0.01" required>
-        <label>Valor Meia:</label>
-        <input type="number" name="lote[${loteId}][setores][][valor_meia]" step="0.01" required>
-        <button type="button" onclick="this.parentElement.remove()">Remover Setor</button>
-    `;
-    setoresDiv.appendChild(setorDiv);
-}
-
 // Salvar e ativar evento
 document.getElementById('formStart').addEventListener('submit', function(e){
     e.preventDefault();
     const formData = new FormData(this);
     fetch('ativar_evento.php', { method: 'POST', body: formData })
         .then(res => res.text())
-        .then(res => { alert(res); location.reload(); });
+        .then(res => { 
+            alert(res); 
+            location.reload(); 
+        });
 });
 
 // Pausar evento
@@ -244,11 +222,28 @@ document.querySelectorAll('.btn-pause').forEach(btn => {
         const eventoId = this.dataset.id;
         fetch('pausar_evento.php', {
             method: 'POST',
-            body: new URLSearchParams({ evento_id: eventoId })
+            body: new URLSearchParams({ id: eventoId })
         }).then(res => res.text())
-          .then(res => { alert(res); location.reload(); });
+          .then(res => { 
+            alert(res); 
+            location.reload(); 
+        });
     });
 });
+
+// ... no final do arquivo dados_eventos.php
+document.getElementById('formStart').addEventListener('submit', function(e){
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch('salvar_lotes_ativacao.php', { method: 'POST', body: formData })
+        .then(res => res.text())
+        .then(res => { 
+            alert(res); 
+            location.reload(); 
+        });
+});
+
+// ... os outros códigos JavaScript continuam iguais
 
 // Cancelar evento
 document.querySelectorAll('.btn-cancel').forEach(btn => {
@@ -256,9 +251,12 @@ document.querySelectorAll('.btn-cancel').forEach(btn => {
         const eventoId = this.dataset.id;
         fetch('cancelar_evento.php', {
             method: 'POST',
-            body: new URLSearchParams({ evento_id: eventoId })
+            body: new URLSearchParams({ id: eventoId })
         }).then(res => res.text())
-          .then(res => { alert(res); location.reload(); });
+          .then(res => { 
+            alert(res); 
+            location.reload(); 
+        });
     });
 });
 </script>
