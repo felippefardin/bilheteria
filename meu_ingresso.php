@@ -12,9 +12,9 @@ $usuario_id = $_SESSION['usuario_id'];
 
 // Buscar ingressos do usuário
 $stmt = $mysqli->prepare("
-    SELECT id, evento_nome, data_evento, quantidade, valor, data_compra
+    SELECT id, evento_nome, data_evento, valor, data_criacao, tipo_ingresso, setor_nome
     FROM ingressos
-    WHERE usuario_id = ?https://chatgpt.com/c/68b6ff44-8c10-8330-a53b-e245358db207
+    WHERE usuario_id = ?
     ORDER BY data_evento DESC
 ");
 $stmt->bind_param("i", $usuario_id);
@@ -72,13 +72,12 @@ $result = $stmt->get_result();
     ?>
     <div class="ingresso <?= $expirado ? 'ingresso-expirado' : '' ?>">
         <h3><?= htmlspecialchars($ingresso['evento_nome']) ?></h3>
+        <p><strong>Tipo de Ingresso:</strong> <?= htmlspecialchars($ingresso['tipo_ingresso']) ?> (<?= htmlspecialchars($ingresso['setor_nome']) ?>)</p>
         <p><strong>Data do Evento:</strong> <?= date('d/m/Y', strtotime($ingresso['data_evento'])) ?></p>
-        <p><strong>Quantidade:</strong> <?= $ingresso['quantidade'] ?></p>
         <p><strong>Valor Pago:</strong> R$ <?= number_format($ingresso['valor'], 2, ',', '.') ?></p>
-        <p><strong>Data da Compra:</strong> <?= date('d/m/Y H:i', strtotime($ingresso['data_compra'])) ?></p>
+        <p><strong>Data da Compra:</strong> <?= date('d/m/Y H:i', strtotime($ingresso['data_criacao'])) ?></p>
         <?php if(!$expirado): ?>
             <p><strong>Status:</strong> Ingresso disponível</p>
-            <!-- Botão para baixar ingresso em PDF -->
             <form method="POST" action="baixar_ingresso.php" style="margin-top:10px;">
                 <input type="hidden" name="ingresso_id" value="<?= $ingresso['id'] ?>">
                 <button type="submit" class="btn">Baixar Ingresso (PDF)</button>

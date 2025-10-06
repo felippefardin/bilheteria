@@ -118,6 +118,14 @@ $is_proprietario = isset($_SESSION['usuario_id']) && $_SESSION['usuario_id'] == 
             <p><strong>Descrição:</strong><br><?= nl2br(htmlspecialchars($evento['descricao'])) ?></p>
         </div>
     </div>
+    <?php if (!empty($evento['video'])): ?>
+        <div style="margin-top: 20px; text-align: center;">
+            <video controls style="max-width: 100%; border-radius: 12px;">
+                <source src="<?= htmlspecialchars($evento['video']) ?>" type="video/mp4">
+                Seu navegador não suporta a tag de vídeo.
+            </video>
+        </div>
+    <?php endif; ?>
 
     <?php foreach($lotes_organizados as $lote): ?>
     <div class="lote-card">

@@ -103,16 +103,17 @@ if(isset($_GET['sucesso']) && $_GET['sucesso'] == 1){
 
     <label>Imagem do Evento</label>
     <input type="file" name="imagem" id="imagem_evento" accept="image/*">
+    <br>
+    <label>Vídeo do Evento (Opcional)</label>
+    <input type="file" name="video" id="video_evento" accept="video/*">
 
     <h3>2. Tipo de Ingresso</h3>
     <label>Tipo de Ingresso *</label>
     <select name="tipo_ingresso" id="tipo_ingresso" required onchange="toggleLinkPrivado()">
         <option value="gratuito">Gratuito</option>
         <option value="pago">Pago</option>
-        <option value="privado">Privado</option> <!-- Nova opção -->
-    </select>
+        <option value="privado">Privado</option> </select>
 
-    <!-- Link Privado -->
     <div id="link-privado-div" class="hidden">
         <label>Link Privado</label>
         <input type="text" name="link_privado" id="link_privado" maxlength="255">
@@ -150,7 +151,6 @@ if(isset($_GET['sucesso']) && $_GET['sucesso'] == 1){
     <button type="submit" class="btn">Salvar Evento</button>
 </form>
 
-<!-- Pré-visualização -->
 <div id="preview-container" style="display:none;">
     <h3>Pré-visualização do Evento</h3>
     <h4 id="pv-titulo"></h4>
@@ -161,6 +161,9 @@ if(isset($_GET['sucesso']) && $_GET['sucesso'] == 1){
 
     <h4>Imagem do Evento</h4>
     <img id="pv-imagem" src="" alt="Imagem do Evento" style="max-width: 100%; border: 1px solid #ccc; padding: 10px;">
+
+    <h4>Vídeo do Evento</h4>
+    <video id="pv-video" controls style="max-width: 100%; border-radius: 12px; margin-top: 10px;" class="hidden"></video>
 
     <h4>Ingressos</h4>
     <div id="pv-lotes"></div>
@@ -221,12 +224,13 @@ function adicionarSetor(btn, loteId){
     setorDiv.classList.add("setor-ingresso");
     setorDiv.innerHTML = `
         <label>Setor</label>
-        <select name="lotes[${loteId}][setores][][nome_setor]" onchange="mostrarCampoCustomizado(this)">
-            <option>Pista</option>
-            <option>Arquibancada</option>
-            <option>Camarote</option>
-            <option>VIP</option>
-            <option>Open Bar</option>
+        <select name="lotes[${loteId}][setores][][nome_setor]" onchange="mostrarCampoCustomizado(this)" required>
+            <option value="" selected disabled>Selecione o setor</option>
+            <option value="Pista">Pista</option>
+            <option value="Arquibancada">Arquibancada</option>
+            <option value="Camarote">Camarote</option>
+            <option value="VIP">VIP</option>
+            <option value="Open Bar">Open Bar</option>
             <option value="customizar">Customizar...</option>
         </select>
         <input type="text" name="lotes[${loteId}][setores][][nome_setor_personalizado]" placeholder="Nome do setor" class="hidden custom-setor" />
@@ -243,15 +247,6 @@ function adicionarSetor(btn, loteId){
         <button type="button" onclick="this.parentElement.remove()">Remover Setor</button>
     `;
     setoresDiv.appendChild(setorDiv);
-}
-
-function mostrarCampoCustomizado(select){
-    const setorInput = select.closest(".setor-ingresso").querySelector(".custom-setor");
-    if(select.value === "customizar"){
-        setorInput.classList.remove("hidden");
-    } else {
-        setorInput.classList.add("hidden");
-    }
 }
 
 function validarQtd(input){
@@ -299,6 +294,21 @@ function mostrarPreview(){
         reader.readAsDataURL(imagemEvento);
     } else {
         previewImagem.src = 'assets/img/default.jpg';
+    }
+
+    // Vídeo
+    const videoEvento = document.getElementById("video_evento").files[0];
+    const previewVideo = document.getElementById("pv-video");
+    if(videoEvento) {
+        const reader = new FileReader();
+        reader.onload = e => {
+            previewVideo.src = e.target.result;
+            previewVideo.classList.remove("hidden");
+        }
+        reader.readAsDataURL(videoEvento);
+    } else {
+        previewVideo.src = '';
+        previewVideo.classList.add("hidden");
     }
 
     // Lotes e setores

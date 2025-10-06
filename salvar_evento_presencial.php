@@ -40,6 +40,20 @@ if (isset($_FILES['imagem']) && $_FILES['imagem']['error'] === UPLOAD_ERR_OK) {
     }
 }
 
+// Upload do vídeo
+$video = null;
+if (isset($_FILES['video']) && $_FILES['video']['error'] === UPLOAD_ERR_OK) {
+    $extensao = pathinfo($_FILES['video']['name'], PATHINFO_EXTENSION);
+    $nomeVideo = uniqid() . '.' . $extensao;
+    $caminhoVideo = 'uploads/' . $nomeVideo;
+
+    if (!move_uploaded_file($_FILES['video']['tmp_name'], $caminhoVideo)) {
+        $erro_msg = "Erro ao fazer upload do vídeo.";
+    } else {
+        $video = $caminhoVideo;
+    }
+}
+
 if (!empty($erro_msg)) {
     die($erro_msg);
 }
@@ -51,12 +65,28 @@ try {
     // 1. Inserir evento na tabela 'eventos'
     $status_inicial = 'pausado';
 
-    $query = "INSERT INTO eventos (usuario_id, titulo, categoria, descricao, endereco, cidade, estado, local, data_inicio, data_fim, hora_evento, hora_fim, tipo_ingresso, link_privado, imagem, criado_por, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $query = "INSERT INTO eventos (usuario_id, titulo, categoria, descricao, endereco, cidade, estado, local, data_inicio, data_fim, hora_evento, hora_fim, tipo_ingresso, link_privado, imagem, video, criado_por, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     $stmt = $mysqli->prepare($query);
 
-    $stmt->bind_param("issssssssssssssis",
-        $usuario_id, $titulo, $categoria, $descricao, $endereco, $cidade, $estado, $local,
-        $data_inicio, $data_fim, $hora_inicio, $hora_fim, $tipo_ingresso, $link_privado, $imagem, $usuario_id, $status_inicial
+    $stmt->bind_param("isssssssssssssssis",
+        $usuario_id,
+        $titulo,
+        $categoria,
+        $descricao,
+        $endereco,
+        $cidade,
+        $estado,
+        $local,
+        $data_inicio,
+        $data_fim,
+        $hora_inicio,
+        $hora_fim,
+        $tipo_ingresso,
+        $link_privado,
+        $imagem,
+        $video,
+        $usuario_id,
+        $status_inicial
     );
     
     if (!$stmt->execute()) {
@@ -91,16 +121,20 @@ try {
                     $nome_setor_personalizado = $setor_data['nome_setor_personalizado'] ?? '';
                     
                     if ($nome_setor_selecionado === 'customizar') {
-                        $nome_setor = !empty($nome_setor_personalizado) ? $nome_setor_personalizado : 'Setor Customizado';
+                        if (empty($nome_setor_personalizado)) {
+                            throw new Exception("Erro: O nome do setor customizado não pode ser vazio.");
+                        }
+                        $nome_setor = $nome_setor_personalizado;
                     } else {
-                        $nome_setor = !empty($nome_setor_selecionado) ? $nome_setor_selecionado : 'Setor Padrão';
+                        if (empty($nome_setor_selecionado)) {
+                            throw new Exception("Erro: Você deve selecionar um setor.");
+                        }
+                        $nome_setor = $nome_setor_selecionado;
                     }
 
                     $quantidade_setor = $setor_data['quantidade'] ?? 0;
                     $valor_inteira = $setor_data['valor_inteira'] ?? 0;
                     $valor_meia = $setor_data['valor_meia'] ?? 0;
-
-                    if (empty($nome_setor)) continue;
 
                     $query_setor = "INSERT INTO eventos_lotes_setores (lote_id, nome_setor, quantidade, valor_inteira, valor_meia, criado_em) VALUES (?, ?, ?, ?, ?, NOW())";
                     $stmt_setor = $mysqli->prepare($query_setor);

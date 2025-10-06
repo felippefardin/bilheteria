@@ -36,17 +36,17 @@ $stmt->close();
 <style>
 .container { margin: 20px auto; width: 90%; background-color: #fff; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
 h2 { text-align: center; }
-.table-eventos, .table-lotes { width: 100%; border-collapse: collapse; margin-top: 20px; }
-.table-eventos th, .table-eventos td, .table-lotes th, .table-lotes td { padding: 10px; border: 1px solid #ddd; text-align: left; }
-.table-eventos th, .table-lotes th { background-color: #f8f8f8; }
-.table-eventos tr:nth-child(even), .table-lotes tr:nth-child(even) { background-color: #f2f2f2; }
+.table-eventos, .table-lotes, .table-vendas { width: 100%; border-collapse: collapse; margin-top: 20px; }
+.table-eventos th, .table-eventos td, .table-lotes th, .table-lotes td, .table-vendas th, .table-vendas td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+.table-eventos th, .table-lotes th, .table-vendas th { background-color: #f8f8f8; }
+.table-eventos tr:nth-child(even), .table-lotes tr:nth-child(even), .table-vendas tr:nth-child(even) { background-color: #f2f2f2; }
 button { padding: 6px 12px; margin: 3px; cursor: pointer; border: none; border-radius: 5px; font-size: 13px; }
 .btn-start { background-color: green; color: white; }
 .btn-pause { background-color: orange; color: white; }
 .btn-cancel { background-color: red; color: white; }
 
 /* Modal */
-.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; }
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
 .modal-content { background-color: #fff; padding: 20px; border-radius: 10px; max-width: 600px; width: 100%; text-align: center; }
 .lote { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; }
 .lote h4 { margin-top: 0; }
@@ -92,44 +92,106 @@ button { padding: 6px 12px; margin: 3px; cursor: pointer; border: none; border-r
 
             <?php
             // Carrega lotes do evento
-            $stmt_lotes = $mysqli->prepare("SELECT * FROM eventos_lotes WHERE evento_id=? ORDER BY numero_lote ASC");
+            $stmt_lotes = $mysqli->prepare("
+                SELECT el.*, els.nome_setor, els.nome_customizado, els.quantidade AS setor_quantidade, els.valor_inteira, els.valor_meia
+                FROM eventos_lotes el
+                LEFT JOIN eventos_lotes_setores els ON el.id = els.lote_id
+                WHERE el.evento_id=?
+                ORDER BY el.numero_lote ASC, els.id ASC
+            ");
             $stmt_lotes->bind_param("i", $e['id']);
             $stmt_lotes->execute();
             $result_lotes = $stmt_lotes->get_result();
+            
+            $lotes = [];
+            while($row = $result_lotes->fetch_assoc()) {
+                $lotes[$row['id']]['info'] = [
+                    'numero' => $row['numero_lote'],
+                    'tipo' => $row['tipo_evento'],
+                    'quantidade' => $row['quantidade']
+                ];
+                $lotes[$row['id']]['setores'][] = [
+                    'nome' => $row['nome_customizado'] ?: $row['nome_setor'],
+                    'quantidade' => $row['setor_quantidade'],
+                    'inteira' => $row['valor_inteira'],
+                    'meia' => $row['valor_meia']
+                ];
+            }
+            $stmt_lotes->close();
             ?>
 
-            <?php if($result_lotes->num_rows > 0): ?>
+            <?php if(!empty($lotes)): ?>
             <tr>
                 <td colspan="5">
                     <table class="table-lotes">
                         <thead>
                             <tr>
                                 <th>Lote</th>
-                                <th>Tipo</th>
-                                <th>Quantidade</th>
-                                <th>Setores</th>
+                                <th>Detalhes do Lote</th>
                             </tr>
                         </thead>
                         <tbody>
-                        <?php while($lote = $result_lotes->fetch_assoc()): ?>
+                        <?php foreach($lotes as $lote): ?>
                             <tr>
-                                <td><?= $lote['numero_lote'] ?></td>
-                                <td><?= $lote['tipo_evento'] ?></td>
-                                <td><?= $lote['quantidade'] ?></td>
+                                <td>Lote <?= $lote['info']['numero'] ?></td>
                                 <td>
-                                    <?php
-                                    $stmt_setores = $mysqli->prepare("SELECT nome_setor, nome_customizado, quantidade, valor_inteira, valor_meia FROM eventos_lotes_setores WHERE lote_id=? ORDER BY id ASC");
-                                    $stmt_setores->bind_param("i", $lote['id']);
-                                    $stmt_setores->execute();
-                                    $result_setores = $stmt_setores->get_result();
-                                    while($setor = $result_setores->fetch_assoc()){
-                                        echo "Setor: ".($setor['nome_customizado'] ?: $setor['nome_setor'])."<br>";
-                                        echo "Qtd: ".$setor['quantidade']."<br>";
-                                        echo "Inteira: R$ ".number_format($setor['valor_inteira'], 2, ',', '.')." / Meia: R$ ".number_format($setor['valor_meia'], 2, ',', '.')."<hr>";
-                                    }
-                                    $stmt_setores->close();
-                                    ?>
+                                    Tipo: <?= $lote['info']['tipo'] ?><br>
+                                    Qtd. Lote: <?= $lote['info']['quantidade'] ?><br>
+                                    <hr>
+                                    <strong>Setores:</strong><br>
+                                    <?php foreach($lote['setores'] as $setor): ?>
+                                        - Setor: <?= htmlspecialchars($setor['nome']) ?><br>
+                                        &nbsp;&nbsp;Qtd: <?= $setor['quantidade'] ?><br>
+                                        &nbsp;&nbsp;Inteira: R$ <?= number_format($setor['inteira'], 2, ',', '.') ?><br>
+                                        &nbsp;&nbsp;Meia: R$ <?= number_format($setor['meia'], 2, ',', '.') ?><br>
+                                    <?php endforeach; ?>
                                 </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+            <?php endif; ?>
+
+            <?php
+            $stmt_vendas = $mysqli->prepare("
+                SELECT v.nome_cliente, v.cpf_cliente, el.numero_lote, els.nome_setor, els.nome_customizado, vd.qtd_inteira, vd.qtd_meia
+                FROM vendas v
+                INNER JOIN vendas_detalhes vd ON v.id = vd.venda_id
+                INNER JOIN eventos_lotes_setores els ON vd.setor_id = els.id
+                INNER JOIN eventos_lotes el ON els.lote_id = el.id
+                WHERE v.evento_id = ?
+            ");
+            $stmt_vendas->bind_param("i", $e['id']);
+            $stmt_vendas->execute();
+            $result_vendas = $stmt_vendas->get_result();
+            ?>
+            
+            <?php if($result_vendas->num_rows > 0): ?>
+            <tr>
+                <td colspan="5">
+                    <h4>Vendas para o Evento: <?= htmlspecialchars($e['titulo']) ?></h4>
+                    <table class="table-vendas">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>CPF</th>
+                                <th>Lote</th>
+                                <th>Setor</th>
+                                <th>Qtd. Inteira</th>
+                                <th>Qtd. Meia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php while($venda = $result_vendas->fetch_assoc()): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($venda['nome_cliente']) ?></td>
+                                <td><?= htmlspecialchars($venda['cpf_cliente']) ?></td>
+                                <td><?= htmlspecialchars($venda['numero_lote']) ?></td>
+                                <td><?= htmlspecialchars($venda['nome_customizado'] ?: $venda['nome_setor']) ?></td>
+                                <td><?= htmlspecialchars($venda['qtd_inteira']) ?></td>
+                                <td><?= htmlspecialchars($venda['qtd_meia']) ?></td>
                             </tr>
                         <?php endwhile; ?>
                         </tbody>
@@ -138,7 +200,8 @@ button { padding: 6px 12px; margin: 3px; cursor: pointer; border: none; border-r
             </tr>
             <?php endif; ?>
 
-            <?php $stmt_lotes->close(); ?>
+            <?php $stmt_vendas->close(); ?>
+
         <?php endforeach; ?>
         </tbody>
     </table>
@@ -208,7 +271,7 @@ document.querySelectorAll('.btn-start').forEach(btn => {
 document.getElementById('formStart').addEventListener('submit', function(e){
     e.preventDefault();
     const formData = new FormData(this);
-    fetch('ativar_evento.php', { method: 'POST', body: formData })
+    fetch('salvar_lotes_ativacao.php', { method: 'POST', body: formData })
         .then(res => res.text())
         .then(res => { 
             alert(res); 
