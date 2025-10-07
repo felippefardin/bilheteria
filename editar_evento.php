@@ -17,7 +17,7 @@ if(!isset($_GET['id'])){
 
 $evento_id = intval($_GET['id']);
 
-// Buscar dados do evento
+// Buscar dados do evento completo
 $stmt = $mysqli->prepare("SELECT * FROM eventos WHERE id = ? AND usuario_id = ?");
 $stmt->bind_param("ii", $evento_id, $usuario_id);
 $stmt->execute();
@@ -29,16 +29,47 @@ if(!$evento){
     die("Evento não encontrado ou você não tem permissão.");
 }
 
-// Buscar lotes
-$stmt_lotes = $mysqli->prepare("SELECT * FROM eventos_lotes WHERE evento_id = ? ORDER BY numero_lote ASC");
+// Buscar lotes e setores
+$stmt_lotes = $mysqli->prepare("
+    SELECT el.*, els.id AS setor_id, els.nome_setor, els.nome_customizado, els.quantidade AS setor_quantidade, els.valor_inteira, els.valor_meia
+    FROM eventos_lotes el
+    LEFT JOIN eventos_lotes_setores els ON el.id = els.lote_id
+    WHERE el.evento_id = ?
+    ORDER BY el.numero_lote ASC, els.id ASC
+");
 $stmt_lotes->bind_param("i", $evento_id);
 $stmt_lotes->execute();
 $res_lotes = $stmt_lotes->get_result();
+
 $lotes = [];
-while($l = $res_lotes->fetch_assoc()){
-    $lotes[] = $l;
+$setores_por_lote = [];
+while($row = $res_lotes->fetch_assoc()) {
+    $lote_id_atual = $row['id'];
+    if (!isset($lotes[$lote_id_atual])) {
+        $lotes[$lote_id_atual] = $row;
+        $setores_por_lote[$lote_id_atual] = [];
+    }
+    if ($row['setor_id']) {
+        $setores_por_lote[$lote_id_atual][] = [
+            'id' => $row['setor_id'],
+            'nome_setor' => $row['nome_setor'],
+            'nome_customizado' => $row['nome_customizado'],
+            'quantidade' => $row['setor_quantidade'],
+            'valor_inteira' => $row['valor_inteira'],
+            'valor_meia' => $row['valor_meia']
+        ];
+    }
 }
 $stmt_lotes->close();
+
+// Desestruturar local para preencher os campos do formulário
+$local_parts = explode(', ', $evento['local']);
+$endereco = $local_parts[0] ?? '';
+$cidade_estado = $local_parts[1] ?? '';
+$cidade_estado_parts = explode(' - ', $cidade_estado);
+$cidade = $cidade_estado_parts[0] ?? '';
+$estado = $cidade_estado_parts[1] ?? '';
+
 
 // Atualizar evento e lotes
 if($_SERVER['REQUEST_METHOD'] === 'POST'){
@@ -46,15 +77,15 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
     $categoria = $_POST['categoria'];
     $descricao = $_POST['descricao'];
     $endereco = $_POST['endereco'];
-    $numero = $_POST['numero'];
-    $bairro = $_POST['bairro'];
     $cidade = $_POST['cidade'];
     $estado = $_POST['estado'];
-    $local = "$endereco, $numero, $bairro, $cidade - $estado";
-    $data_evento = $_POST['data_evento'];
-    $hora_evento = $_POST['hora_evento'];
-    $preco = floatval($_POST['preco']);
-    $qtd_ingressos = intval($_POST['qtd_ingressos']);
+    $local = "$endereco, $cidade - $estado";
+    $data_inicio = $_POST['data_inicio'];
+    $data_fim = $_POST['data_fim'];
+    $hora_inicio = $_POST['hora_inicio'];
+    $hora_fim = $_POST['hora_fim'];
+    $tipo_ingresso = $_POST['tipo_ingresso'];
+    $link_privado = ($tipo_ingresso === 'privado') ? ($_POST['link_privado'] ?? '') : '';
 
     // Upload imagem
     $imagem = $evento['imagem'];
@@ -72,79 +103,48 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
         }
     }
 
+    // Upload vídeo
+    $video = $evento['video'];
+    if(isset($_FILES['video']) && $_FILES['video']['error'] === UPLOAD_ERR_OK){
+        $pasta = "uploads/";
+        if(!is_dir($pasta)) mkdir($pasta, 0777, true);
+        $nome_video = time() . "_" . basename($_FILES["video"]["name"]);
+        $caminho_video = $pasta . $nome_video;
+
+        if(move_uploaded_file($_FILES["video"]["tmp_name"], $caminho_video)){
+            if($evento['video'] && file_exists($evento['video'])){
+                unlink($evento['video']);
+            }
+            $video = $caminho_video;
+        }
+    }
+
+
     // Atualizar evento
-    $stmt = $mysqli->prepare("UPDATE eventos SET titulo=?, categoria=?, descricao=?, local=?, data_evento=?, hora_evento=?, preco=?, qtd_ingressos=?, imagem=? WHERE id=? AND usuario_id=?");
-    $stmt->bind_param("ssssssdissi",
+    $stmt = $mysqli->prepare("UPDATE eventos SET titulo=?, categoria=?, descricao=?, endereco=?, cidade=?, estado=?, local=?, data_inicio=?, data_fim=?, hora_evento=?, hora_fim=?, tipo_ingresso=?, link_privado=?, imagem=?, video=? WHERE id=? AND usuario_id=?");
+    $stmt->bind_param("sssssssssssssssii",
         $titulo,
         $categoria,
         $descricao,
+        $endereco,
+        $cidade,
+        $estado,
         $local,
-        $data_evento,
-        $hora_evento,
-        $preco,
-        $qtd_ingressos,
+        $data_inicio,
+        $data_fim,
+        $hora_inicio,
+        $hora_fim,
+        $tipo_ingresso,
+        $link_privado,
         $imagem,
+        $video,
         $evento_id,
         $usuario_id
     );
     $stmt->execute();
     $stmt->close();
 
-    // Atualizar lotes existentes
-    if(isset($_POST['lote_id'])){
-        foreach($_POST['lote_id'] as $index => $lote_id){
-            $numero_lote = $_POST['lote_num'][$index];
-            $data_inicio = $_POST['data_inicio'][$index];
-            $hora_inicio = $_POST['hora_inicio'][$index];
-            $data_fim = $_POST['data_fim'][$index];
-            $valor_inteira = floatval($_POST['valor_inteira'][$index]);
-            $valor_meia = floatval($_POST['valor_meia'][$index]);
-            $quantidade = intval($_POST['quantidade'][$index]);
-
-            $stmt = $mysqli->prepare("UPDATE eventos_lotes SET numero_lote=?, data_inicio=?, hora_inicio=?, data_fim=?, valor_inteira=?, valor_meia=?, quantidade=? WHERE id=? AND evento_id=?");
-            $stmt->bind_param("isssddiii",
-                $numero_lote,
-                $data_inicio,
-                $hora_inicio,
-                $data_fim,
-                $valor_inteira,
-                $valor_meia,
-                $quantidade,
-                $lote_id,
-                $evento_id
-            );
-            $stmt->execute();
-            $stmt->close();
-        }
-    }
-
-    // Adicionar novos lotes
-    if(isset($_POST['novo_lote_num'])){
-        foreach($_POST['novo_lote_num'] as $index => $novo_num){
-            if(empty($novo_num)) continue;
-            $novo_data_inicio = $_POST['novo_data_inicio'][$index];
-            $novo_hora_inicio = $_POST['novo_hora_inicio'][$index];
-            $novo_data_fim = $_POST['novo_data_fim'][$index];
-            $novo_valor_inteira = floatval($_POST['novo_valor_inteira'][$index]);
-            $novo_valor_meia = floatval($_POST['novo_valor_meia'][$index]);
-            $novo_quantidade = intval($_POST['novo_quantidade'][$index]);
-
-            $stmt = $mysqli->prepare("INSERT INTO eventos_lotes (evento_id, numero_lote, data_inicio, hora_inicio, data_fim, valor_inteira, valor_meia, quantidade) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("iisssddi",
-                $evento_id,
-                $novo_num,
-                $novo_data_inicio,
-                $novo_hora_inicio,
-                $novo_data_fim,
-                $novo_valor_inteira,
-                $novo_valor_meia,
-                $novo_quantidade
-            );
-            $stmt->execute();
-            $stmt->close();
-        }
-    }
-
+    // Redireciona de volta para a lista de eventos após a edição
     header("Location: eventos_criados.php");
     exit();
 }
@@ -154,104 +154,381 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Editar Evento</title>
 <link rel="stylesheet" href="assets/css/style.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-.evento-container{max-width:900px;margin:20px auto;padding:20px;background:#f9f9f9;border-radius:8px;box-shadow:0 0 8px rgba(0,0,0,0.1);}
-.evento-container h2{margin-bottom:20px;color:#004080;}
-.evento-container label{display:block;margin-top:10px;font-weight:bold;}
-.evento-container input,.evento-container textarea,.evento-container select{width:100%;padding:8px;margin-top:5px;border-radius:4px;border:1px solid #ccc;box-sizing:border-box;}
-.evento-container button{margin-top:15px;padding:10px 20px;background:#004080;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:bold;}
-.evento-container button:hover{background:#003366;}
-.evento-container img{margin-top:10px;max-width:200px;display:block;}
-.lote-section{margin-top:30px;}
-.lote-card,.novo-lote-card{padding:10px;border:1px solid #ccc;border-radius:5px;margin-bottom:10px;background:#f0f0f0;}
-.lote-card h4,.novo-lote-card h4{margin:0 0 10px 0;color:#004080;}
-.add-lote-btn{margin-top:10px;padding:8px 12px;background:#28a745;color:#fff;border:none;border-radius:4px;cursor:pointer;}
-.add-lote-btn:hover{background:#218838;}
-</style>
-<script>
-function adicionarLote(){
-    let container = document.getElementById('novos-lotes');
-    let index = container.children.length;
-    let html = `
-    <div class="novo-lote-card">
-        <h4>Novo Lote</h4>
-        <label>Número do Lote</label><input type="number" name="novo_lote_num[]" required>
-        <label>Data Início</label><input type="date" name="novo_data_inicio[]" required>
-        <label>Hora Início</label><input type="time" name="novo_hora_inicio[]" required>
-        <label>Data Fim</label><input type="date" name="novo_data_fim[]" required>
-        <label>Valor Inteira</label><input type="number" step="0.01" name="novo_valor_inteira[]" required>
-        <label>Valor Meia</label><input type="number" step="0.01" name="novo_valor_meia[]" required>
-        <label>Quantidade</label><input type="number" name="novo_quantidade[]" required>
-    </div>`;
-    container.insertAdjacentHTML('beforeend', html);
+/* Estilos para o layout em desktop */
+body {
+    background-color: #f5f5f5;
+    font-family: Arial, sans-serif;
 }
-</script>
+
+.evento-container {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 30px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.evento-container h2 {
+    text-align: center;
+    color: #004080;
+    margin-bottom: 25px;
+    font-size: 2rem;
+}
+
+.evento-container h3 {
+    color: #004080;
+    margin-top: 30px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 5px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.form-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-full-width {
+    grid-column: span 2;
+}
+
+.evento-container label {
+    font-weight: bold;
+    margin-top: 10px;
+    color: #555;
+}
+
+.evento-container input,
+.evento-container textarea,
+.evento-container select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.evento-container input:focus,
+.evento-container textarea:focus,
+.evento-container select:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+.media-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.media-preview img,
+.media-preview video {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    padding: 5px;
+}
+
+.lote-card {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.setor-card {
+    background-color: #eaf4ff;
+    border: 1px dashed #007bff;
+    padding: 15px;
+    margin-top: 15px;
+    border-radius: 8px;
+}
+
+.btn-container {
+    margin-top: 30px;
+    text-align: center;
+}
+
+.btn-submit, .btn-back {
+    padding: 12px 25px;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: bold;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.btn-submit {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-submit:hover {
+    background-color: #0056b3;
+}
+
+.btn-back {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+.btn-back:hover {
+    background-color: #5a6268;
+}
+
+/* Esconde campos e elementos que não devem aparecer */
+.hidden { display: none; }
+
+/* Media Queries para responsividade */
+@media (max-width: 768px) {
+    .evento-container {
+        padding: 15px;
+        margin: 10px;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-full-width {
+        grid-column: span 1;
+    }
+}
+</style>
 </head>
 <body>
 <div class="evento-container">
-<h2><i class="fas fa-edit"></i> Editar Evento</h2>
-<form method="POST" enctype="multipart/form-data">
-    <!-- Dados do evento (mesmo que antes) -->
-    <label>Título</label><input type="text" name="titulo" value="<?= htmlspecialchars($evento['titulo']) ?>" required>
-    <label>Categoria</label>
-    <select name="categoria" required>
-        <option value="">Selecione</option>
-        <?php
-        $categorias = ["Festas e Shows","Teatros e Espetáculos","Cursos e Workshops","Congressos e Palestras","Esporte","Passeios e Tours","Gastronomia","Grátis","Saúde e Bem-Estar","Arte, Cultura e Lazer","Infantil","Religião e Espiritualidade","Games e Geek","Moda e Beleza"];
-        foreach($categorias as $cat){
-            $sel = ($evento['categoria']==$cat) ? "selected" : "";
-            echo "<option value=\"$cat\" $sel>$cat</option>";
-        }
-        ?>
-    </select>
-    <label>Descrição</label><textarea name="descricao" rows="5" required><?= htmlspecialchars($evento['descricao']) ?></textarea>
-    <label>Endereço</label><input type="text" name="endereco" value="<?= htmlspecialchars(explode(',', $evento['local'])[0]) ?>" required>
-    <label>Número</label><input type="text" name="numero" value="<?= htmlspecialchars(explode(',', $evento['local'])[1] ?? '') ?>">
-    <label>Bairro</label><input type="text" name="bairro" value="<?= htmlspecialchars(explode(',', $evento['local'])[2] ?? '') ?>">
-
-<label>Cidade</label><input type="text" name="cidade" value="<?= htmlspecialchars(explode(',', $evento['local'])[3] ?? '') ?>">
-
-<label>Estado</label><input type="text" name="estado" value="<?= htmlspecialchars(explode(',', $evento['local'])[4] ?? '') ?>">
-
-    <label>Data do Evento</label><input type="date" name="data_evento" value="<?= $evento['data_evento'] ?>" required>
-    <label>Hora do Evento</label><input type="time" name="hora_evento" value="<?= $evento['hora_evento'] ?>" required>
-    <label>Preço</label><input type="number" step="0.01" name="preco" value="<?= $evento['preco'] ?>">
-    <label>Quantidade de Ingressos</label><input type="number" name="qtd_ingressos" value="<?= $evento['qtd_ingressos'] ?>">
-    <label>Imagem do Evento</label><br>
-    <?php if($evento['imagem']): ?><img src="<?= $evento['imagem'] ?>" alt="Imagem atual"><?php endif; ?>
-    <input type="file" name="imagem" accept="image/*">
-
-    <!-- Lotes existentes -->
-    <div class="lote-section">
-        <h3>Lotes do Evento</h3>
-        <?php foreach($lotes as $l): ?>
-            <div class="lote-card">
-                <h4>Lote <?= $l['numero_lote'] ?></h4>
-                <input type="hidden" name="lote_id[]" value="<?= $l['id'] ?>">
-                <label>Número do Lote</label><input type="number" name="lote_num[]" value="<?= $l['numero_lote'] ?>" required>
-                <label>Data Início</label><input type="date" name="data_inicio[]" value="<?= $l['data_inicio'] ?>" required>
-                <label>Hora Início</label><input type="time" name="hora_inicio[]" value="<?= $l['hora_inicio'] ?>" required>
-                <label>Data Fim</label><input type="date" name="data_fim[]" value="<?= $l['data_fim'] ?>" required>
-                <label>Valor Inteira</label><input type="number" step="0.01" name="valor_inteira[]" value="<?= $l['valor_inteira'] ?>" required>
-                <label>Valor Meia</label><input type="number" step="0.01" name="valor_meia[]" value="<?= $l['valor_meia'] ?>" required>
-                <label>Quantidade</label><input type="number" name="quantidade[]" value="<?= $l['quantidade'] ?>" required>
+    <h2><i class="fas fa-edit"></i> Editar Evento</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <h3>1. Dados do Evento</h3>
+        <div class="form-grid">
+            <div class="form-field form-full-width">
+                <label>Título</label>
+                <input type="text" name="titulo" value="<?= htmlspecialchars($evento['titulo'] ?? '') ?>" required>
             </div>
-        <?php endforeach; ?>
+            <div class="form-field form-full-width">
+                <label>Categoria</label>
+                <select name="categoria" required>
+                    <option value="">Selecione</option>
+                    <?php
+                    $categorias = ["Festas e Shows","Teatros e Espetáculos","Cursos e Workshops","Congressos e Palestras","Esporte","Passeios e Tours","Gastronomia","Grátis","Saúde e Bem-Estar","Arte, Cultura e Lazer","Infantil","Religião e Espiritualidade","Games e Geek","Moda e Beleza"];
+                    foreach($categorias as $cat){
+                        $sel = ($evento['categoria']?? '') == $cat ? "selected" : "";
+                        echo "<option value=\"$cat\" $sel>$cat</option>";
+                    }
+                    ?>
+                </select>
+            </div>
+            <div class="form-field form-full-width">
+                <label>Descrição</label>
+                <textarea name="descricao" rows="5" required><?= htmlspecialchars($evento['descricao'] ?? '') ?></textarea>
+            </div>
+        </div>
 
-        <!-- Novos lotes -->
-        <div id="novos-lotes"></div>
-        <button type="button" class="add-lote-btn" onclick="adicionarLote()">Adicionar Novo Lote</button>
-    </div>
+        <h3>2. Local e Datas</h3>
+        <div class="form-grid">
+            <div class="form-field">
+                <label>Endereço</label>
+                <input type="text" name="endereco" value="<?= htmlspecialchars($endereco) ?>" required>
+            </div>
+            <div class="form-field">
+                <label>Cidade</label>
+                <input type="text" name="cidade" value="<?= htmlspecialchars($cidade) ?>" required>
+            </div>
+            <div class="form-field">
+                <label>Estado</label>
+                <input type="text" name="estado" value="<?= htmlspecialchars($estado) ?>" required>
+            </div>
+            <div class="form-field">
+                <label>Data de Início</label>
+                <input type="date" name="data_inicio" value="<?= $evento['data_inicio'] ?? '' ?>" required>
+            </div>
+            <div class="form-field">
+                <label>Data de Término</label>
+                <input type="date" name="data_fim" value="<?= $evento['data_fim'] ?? '' ?>">
+            </div>
+            <div class="form-field">
+                <label>Hora de Início</label>
+                <input type="time" name="hora_inicio" value="<?= $evento['hora_evento'] ?? '' ?>" required>
+            </div>
+            <div class="form-field">
+                <label>Hora de Término</label>
+                <input type="time" name="hora_fim" value="<?= $evento['hora_fim'] ?? '' ?>">
+            </div>
+        </div>
 
-    <button type="submit">Atualizar Evento</button>
-</form>
-<a href="eventos_criados.php" style="display:inline-block;margin-top:15px;padding:10px 20px;background:#ccc;color:#000;border-radius:5px;text-decoration:none;">
-    <i class="fas fa-arrow-left"></i> Voltar
-</a>
+        <h3>3. Mídia</h3>
+        <div class="form-grid">
+            <div class="form-field">
+                <label>Imagem do Evento</label>
+                <?php if(!empty($evento['imagem'])): ?>
+                    <div class="media-preview">
+                        <img src="<?= htmlspecialchars($evento['imagem']) ?>" alt="Imagem atual">
+                    </div>
+                <?php endif; ?>
+                <input type="file" name="imagem" accept="image/*">
+            </div>
+            <div class="form-field">
+                <label>Vídeo do Evento (MP4)</label>
+                <?php if(!empty($evento['video'])): ?>
+                    <div class="media-preview">
+                        <video src="<?= htmlspecialchars($evento['video']) ?>" controls></video>
+                    </div>
+                <?php endif; ?>
+                <input type="file" name="video" accept="video/mp4">
+            </div>
+        </div>
+
+        <h3>4. Ingressos e Lotes</h3>
+        <div class="form-grid form-full-width">
+            <div class="form-field">
+                <label>Tipo de Ingresso</label>
+                <select name="tipo_ingresso" id="tipo_ingresso" required onchange="toggleLinkPrivado()">
+                    <option value="gratuito" <?= ($evento['tipo_ingresso'] ?? '') == 'gratuito' ? 'selected' : '' ?>>Gratuito</option>
+                    <option value="pago" <?= ($evento['tipo_ingresso'] ?? '') == 'pago' ? 'selected' : '' ?>>Pago</option>
+                    <option value="privado" <?= ($evento['tipo_ingresso'] ?? '') == 'privado' ? 'selected' : '' ?>>Privado</option>
+                </select>
+            </div>
+            <div id="link-privado-div" class="form-field <?= ($evento['tipo_ingresso'] ?? '') == 'privado' ? '' : 'hidden' ?>">
+                <label>Link Privado</label>
+                <input type="text" name="link_privado" id="link_privado" value="<?= htmlspecialchars($evento['link_privado'] ?? '') ?>">
+            </div>
+        </div>
+
+        <div class="lote-section form-full-width">
+            <h4>Lotes do Evento</h4>
+            <?php foreach($lotes as $lote): ?>
+                <div class="lote-card">
+                    <h5>Lote <?= htmlspecialchars($lote['numero_lote'] ?? '') ?></h5>
+                    <input type="hidden" name="lotes[<?= $lote['id'] ?>][id]" value="<?= htmlspecialchars($lote['id'] ?? '') ?>">
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label>Número do Lote</label>
+                            <input type="number" name="lotes[<?= $lote['id'] ?>][numero_lote]" value="<?= htmlspecialchars($lote['numero_lote'] ?? '') ?>" required>
+                        </div>
+                        <div class="form-field">
+                            <label>Tipo do Lote</label>
+                            <select name="lotes[<?= $lote['id'] ?>][tipo_evento]">
+                                <option value="pago" <?= ($lote['tipo_evento'] ?? '') == 'pago' ? 'selected' : '' ?>>Pago</option>
+                                <option value="gratuito" <?= ($lote['tipo_evento'] ?? '') == 'gratuito' ? 'selected' : '' ?>>Gratuito</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>Início das Vendas</label>
+                            <input type="datetime-local" name="lotes[<?= $lote['id'] ?>][inicio_venda]" value="<?= htmlspecialchars(date('Y-m-d\TH:i', strtotime($lote['inicio_venda'] ?? ''))) ?>" required>
+                        </div>
+                        <div class="form-field">
+                            <label>Fim das Vendas</label>
+                            <input type="datetime-local" name="lotes[<?= $lote['id'] ?>][fim_venda]" value="<?= htmlspecialchars(date('Y-m-d\TH:i', strtotime($lote['fim_venda'] ?? ''))) ?>" required>
+                        </div>
+                        <div class="form-field">
+                            <label>Quantidade Máxima</label>
+                            <input type="number" name="lotes[<?= $lote['id'] ?>][quantidade]" value="<?= htmlspecialchars($lote['quantidade'] ?? '') ?>" required>
+                        </div>
+                    </div>
+                    
+                    <div class="setor-container">
+                        <h5>Setores do Lote</h5>
+                        <?php 
+                        $setores_do_lote = $setores_por_lote[$lote['id']] ?? [];
+                        foreach($setores_do_lote as $setor): 
+                        ?>
+                            <div class="setor-card">
+                                <input type="hidden" name="setores[<?= $setor['id'] ?>][id]" value="<?= htmlspecialchars($setor['id'] ?? '') ?>">
+                                <div class="form-grid">
+                                    <div class="form-field">
+                                        <label>Nome do Setor</label>
+                                        <select name="setores[<?= $setor['id'] ?>][nome_setor]" onchange="toggleCustomSetor(this)">
+                                            <option value="Pista" <?= ($setor['nome_setor'] ?? '') == 'Pista' ? 'selected' : '' ?>>Pista</option>
+                                            <option value="Arquibancada" <?= ($setor['nome_setor'] ?? '') == 'Arquibancada' ? 'selected' : '' ?>>Arquibancada</option>
+                                            <option value="Camarote" <?= ($setor['nome_setor'] ?? '') == 'Camarote' ? 'selected' : '' ?>>Camarote</option>
+                                            <option value="VIP" <?= ($setor['nome_setor'] ?? '') == 'VIP' ? 'selected' : '' ?>>VIP</option>
+                                            <option value="Open Bar" <?= ($setor['nome_setor'] ?? '') == 'Open Bar' ? 'selected' : '' ?>>Open Bar</option>
+                                            <option value="customizar" <?= !empty($setor['nome_customizado']) ? 'selected' : '' ?>>Customizar...</option>
+                                        </select>
+                                        <input type="text" name="setores[<?= $setor['id'] ?>][nome_customizado]" placeholder="Nome personalizado" value="<?= htmlspecialchars($setor['nome_customizado'] ?? '') ?>" class="<?= !empty($setor['nome_customizado']) ? '' : 'hidden' ?>">
+                                    </div>
+                                    <div class="form-field">
+                                        <label>Quantidade</label>
+                                        <input type="number" name="setores[<?= $setor['id'] ?>][quantidade]" value="<?= htmlspecialchars($setor['quantidade'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-field">
+                                        <label>Valor Inteira</label>
+                                        <input type="number" step="0.01" name="setores[<?= $setor['id'] ?>][valor_inteira]" value="<?= htmlspecialchars($setor['valor_inteira'] ?? '') ?>">
+                                    </div>
+                                    <div class="form-field">
+                                        <label>Valor Meia</label>
+                                        <input type="number" step="0.01" name="setores[<?= $setor['id'] ?>][valor_meia]" value="<?= htmlspecialchars($setor['valor_meia'] ?? '') ?>">
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="btn-container form-full-width">
+            <button type="submit" class="btn-submit">Salvar Alterações</button>
+            <a href="eventos_criados.php" class="btn-back">
+                <i class="fas fa-arrow-left"></i> Voltar
+            </a>
+        </div>
+    </form>
 </div>
+
+<script>
+function toggleLinkPrivado() {
+    const tipoIngresso = document.getElementById("tipo_ingresso").value;
+    const linkPrivadoDiv = document.getElementById("link-privado-div");
+    if (tipoIngresso === "privado") {
+        linkPrivadoDiv.classList.remove("hidden");
+    } else {
+        linkPrivadoDiv.classList.add("hidden");
+        // Limpar o valor quando o campo é escondido
+        document.getElementById("link_privado").value = '';
+    }
+}
+
+function toggleCustomSetor(selectElement) {
+    const customInput = selectElement.nextElementSibling;
+    if (selectElement.value === 'customizar') {
+        customInput.classList.remove('hidden');
+        customInput.setAttribute('required', 'required');
+    } else {
+        customInput.classList.add('hidden');
+        customInput.removeAttribute('required');
+        customInput.value = '';
+    }
+}
+
+// Inicializa a visibilidade do campo de link privado
+document.addEventListener('DOMContentLoaded', () => {
+    toggleLinkPrivado();
+});
+</script>
+
 <?php include 'includes/footer.php'; ?>
 </body>
 </html>

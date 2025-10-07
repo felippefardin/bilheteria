@@ -30,10 +30,11 @@ $stmt->close();
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Meus Eventos</title>
+<title>Dados dos Eventos</title>
 <link rel="stylesheet" href="assets/css/style.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
+/* Estilos gerais */
 .container { margin: 20px auto; width: 90%; background-color: #fff; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
 h2 { text-align: center; }
 .table-eventos, .table-lotes, .table-vendas { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -41,16 +42,119 @@ h2 { text-align: center; }
 .table-eventos th, .table-lotes th, .table-vendas th { background-color: #f8f8f8; }
 .table-eventos tr:nth-child(even), .table-lotes tr:nth-child(even), .table-vendas tr:nth-child(even) { background-color: #f2f2f2; }
 button { padding: 6px 12px; margin: 3px; cursor: pointer; border: none; border-radius: 5px; font-size: 13px; }
-.btn-start { background-color: green; color: white; }
-.btn-pause { background-color: orange; color: white; }
-.btn-cancel { background-color: red; color: white; }
+.btn-start { background-color: #28a745; color: white; }
+.btn-pause { background-color: #ffc107; color: white; }
+.btn-cancel { background-color: #dc3545; color: white; }
 
-/* Modal */
-.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
-.modal-content { background-color: #fff; padding: 20px; border-radius: 10px; max-width: 600px; width: 100%; text-align: center; }
-.lote { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; background-color: #f9f9f9; }
-.lote h4 { margin-top: 0; }
-.setores .setor-ingresso { margin-bottom: 10px; }
+/* Estilos do Modal Moderno */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 90%;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    text-align: left;
+    transform: scale(0.95);
+    animation: scale-in 0.2s forwards;
+}
+
+@keyframes scale-in {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.modal-content h3 {
+    text-align: center;
+    color: #333;
+    margin-top: 0;
+    font-size: 1.5rem;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+.modal-content form label {
+    font-weight: 600;
+    margin-top: 10px;
+    display: block;
+    color: #555;
+}
+
+.modal-content form input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.modal-content form button {
+    width: 100%;
+    margin-top: 20px;
+    padding: 12px;
+    font-weight: bold;
+    font-size: 1rem;
+    color: white;
+    background-color: #007bff;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.modal-content form button[type="button"] {
+    background-color: #6c757d;
+}
+
+.modal-content form button[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+.modal-content form button[type="button"]:hover {
+    background-color: #5a6268;
+}
+
+/* Modal specific styles */
+.lote {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.lote h4 {
+    color: #495057;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+}
+
+.setores .setor-ingresso {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: #eaf4ff;
+    border-radius: 6px;
+    border-left: 3px solid #007bff;
+}
+
 .hidden { display: none; }
 </style>
 </head>
@@ -208,14 +312,16 @@ button { padding: 6px 12px; margin: 3px; cursor: pointer; border: none; border-r
 <?php endif; ?>
 </div>
 
-<div id="modalStart" class="modal">
+<div id="modalStart" class="modal" style="display:none;">
     <div class="modal-content">
         <h3>Ativar Evento</h3>
         <form id="formStart">
             <input type="hidden" name="evento_id" id="evento_id">
             <div id="lotesContainer"></div>
-            <button type="submit">Salvar e Ativar</button>
-            <button type="button" onclick="document.getElementById('modalStart').style.display='none'">Cancelar</button>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-primary">Salvar e Ativar</button>
+                <button type="button" class="btn-secondary" onclick="document.getElementById('modalStart').style.display='none'">Cancelar</button>
+            </div>
         </form>
     </div>
 </div>
@@ -293,20 +399,6 @@ document.querySelectorAll('.btn-pause').forEach(btn => {
         });
     });
 });
-
-// ... no final do arquivo dados_eventos.php
-document.getElementById('formStart').addEventListener('submit', function(e){
-    e.preventDefault();
-    const formData = new FormData(this);
-    fetch('salvar_lotes_ativacao.php', { method: 'POST', body: formData })
-        .then(res => res.text())
-        .then(res => { 
-            alert(res); 
-            location.reload(); 
-        });
-});
-
-// ... os outros códigos JavaScript continuam iguais
 
 // Cancelar evento
 document.querySelectorAll('.btn-cancel').forEach(btn => {

@@ -129,20 +129,28 @@ $is_proprietario = isset($_SESSION['usuario_id']) && $_SESSION['usuario_id'] == 
 
     <?php foreach($lotes_organizados as $lote): ?>
     <div class="lote-card">
-        <h3>Lote <?= htmlspecialchars($lote['numero_lote']) ?> - <?= htmlspecialchars($lote['quantidade']) ?> ingressos</h3>
+        <h3>Lote <?= htmlspecialchars($lote['numero_lote']) ?> 
+        <?php if ($is_proprietario): ?>
+            - <?= htmlspecialchars($lote['quantidade']) ?> ingressos
+        <?php endif; ?>
+        </h3>
         <table class="setor-table">
             <tr>
                 <th>Setor</th>
                 <th>Inteira (R$)</th>
                 <th>Meia (R$)</th>
-                <th>Quantidade</th>
+                <?php if ($is_proprietario): ?>
+                    <th>Quantidade</th>
+                <?php endif; ?>
             </tr>
             <?php foreach($lote['setores'] as $s): ?>
                 <tr>
                     <td><?= htmlspecialchars($s['nome']) ?></td>
                     <td><?= number_format($s['valor_inteira'], 2, ',', '.') ?></td>
                     <td><?= number_format($s['valor_meia'], 2, ',', '.') ?></td>
-                    <td><?= htmlspecialchars($s['quantidade']) ?></td>
+                    <?php if ($is_proprietario): ?>
+                        <td><?= htmlspecialchars($s['quantidade']) ?></td>
+                    <?php endif; ?>
                 </tr>
             <?php endforeach; ?>
         </table>

@@ -38,11 +38,7 @@ include 'includes/header.php';
 $usuario_id = $_SESSION['usuario_id'] ?? null;
 
 // Buscar categorias
-if($usuario_id){
-    $categorias = $mysqli->query("SELECT DISTINCT categoria FROM eventos WHERE usuario_id = $usuario_id ORDER BY categoria ASC");
-} else {
-    $categorias = $mysqli->query("SELECT DISTINCT categoria FROM eventos WHERE status='ativo' AND data_inicio >= CURDATE() ORDER BY categoria ASC");
-}
+$categorias = $mysqli->query("SELECT DISTINCT categoria FROM eventos WHERE status='ativo' AND data_inicio >= CURDATE() ORDER BY categoria ASC");
 
 while($cat = $categorias->fetch_assoc()):
     $categoria = $cat['categoria'];
@@ -55,13 +51,8 @@ while($cat = $categorias->fetch_assoc()):
         <div class="cards-row">
         <?php
         // Buscar eventos por categoria
-        if($usuario_id){
-            $stmt = $mysqli->prepare("SELECT * FROM eventos WHERE categoria=? AND usuario_id=? ORDER BY data_inicio ASC");
-            $stmt->bind_param("si", $categoria, $usuario_id);
-        } else {
-            $stmt = $mysqli->prepare("SELECT * FROM eventos WHERE categoria=? AND status='ativo' AND data_inicio >= CURDATE() ORDER BY data_inicio ASC");
-            $stmt->bind_param("s", $categoria);
-        }
+        $stmt = $mysqli->prepare("SELECT * FROM eventos WHERE categoria=? AND status='ativo' AND data_inicio >= CURDATE() ORDER BY data_inicio ASC");
+        $stmt->bind_param("s", $categoria);
         $stmt->execute();
         $res = $stmt->get_result();
 
@@ -79,16 +70,6 @@ while($cat = $categorias->fetch_assoc()):
                     <p><i class="fas fa-map-marker-alt"></i> <?= htmlspecialchars($evento['endereco']) ?>, <?= htmlspecialchars($evento['cidade']) ?>/<?= htmlspecialchars($evento['estado']) ?></p>
 
                     <a href="evento_detalhe.php?id=<?= $evento['id'] ?>" class="btn-card btn-comprar">Comprar</a>
-
-                    <?php if($usuario_id && $evento['usuario_id']==$usuario_id): ?>
-                        <?php if($evento['status']=='ativo'): ?>
-                            <a href="pausar_evento.php?id=<?= $evento['id'] ?>" class="btn-card btn-pausar">Pausar</a>
-                            <a href="cancelar_evento.php?id=<?= $evento['id'] ?>" class="btn-card btn-cancelar">Cancelar</a>
-                        <?php elseif($evento['status']=='pausado' || $evento['status']=='cancelado'): ?>
-                            <a href="reativar_evento.php?id=<?= $evento['id'] ?>" class="btn-card btn-reativar">Reativar</a>
-                        <?php endif; ?>
-                    <?php endif; ?>
-
                 </div>
             </div>
         <?php endwhile; $stmt->close(); ?>
